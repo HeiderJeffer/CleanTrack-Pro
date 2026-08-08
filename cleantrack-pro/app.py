@@ -2,7 +2,6 @@
 # Smart Cleaning Time Tracker
 # Developed by Heider Jeffer
 
-
 import streamlit as st
 from datetime import datetime, time, timedelta
 
@@ -72,6 +71,11 @@ if "finished_rooms" not in st.session_state:
 
 if "rooms_completed" not in st.session_state:
     st.session_state.rooms_completed = 0
+
+if "room_notes" not in st.session_state:
+    st.session_state.room_notes = {
+        room: "" for room in range(1, TOTAL_ROOMS + 1)
+    }
 
 # =========================================================
 # HEADER
@@ -146,7 +150,6 @@ minutes_available = (
     END_TIME - current_time
 ).total_seconds() / 60
 
-# Remove the 20-minute break if current time is before break
 if current_time < BREAK_START:
     minutes_available -= 20
 
@@ -168,18 +171,23 @@ else:
 # =========================================================
 
 def format_duration(total_minutes):
-    total_minutes = max(0, int(round(total_minutes)))
+
+    total_minutes = max(
+        0,
+        int(round(total_minutes))
+    )
 
     hours = total_minutes // 60
     minutes = total_minutes % 60
 
     if hours > 0:
+
         if minutes > 0:
             return f"{hours}h {minutes}m"
-        else:
-            return f"{hours}h"
-    else:
-        return f"{minutes}m"
+
+        return f"{hours}h"
+
+    return f"{minutes}m"
 
 # =========================================================
 # DASHBOARD
@@ -269,28 +277,7 @@ st.subheader("☕ Break")
 st.write("**10:00 AM – 10:20 AM**")
 
 # =========================================================
-# EXAMPLE
-# =========================================================
-
-st.divider()
-
-st.subheader("💡 Example")
-
-st.write(
-    "If it is **11:00 AM** and you have finished "
-    "**11 rooms**, you have **5 rooms remaining**."
-)
-
-st.write(
-    "You have **2h 0m** available until 1:00 PM."
-)
-
-st.write(
-    "That gives you approximately **24 minutes per room**."
-)
-
-# =========================================================
-# REMAINING SCHEDULE
+# REMAINING ROOM PLAN
 # =========================================================
 
 st.divider()
@@ -360,6 +347,29 @@ else:
     )
 
 # =========================================================
+# ROOM NOTES
+# =========================================================
+
+st.divider()
+
+st.subheader("📝 Worker Notes")
+
+st.caption(
+    "Add notes for any room. For example: "
+    "maintenance needed, towels missing, extra cleaning, etc."
+)
+
+for room in range(1, TOTAL_ROOMS + 1):
+
+    st.session_state.room_notes[room] = st.text_area(
+        f"Room {room} – Notes",
+        value=st.session_state.room_notes[room],
+        placeholder="Write a note for this room...",
+        key=f"note_{room}",
+        height=70
+    )
+
+# =========================================================
 # INDIVIDUAL ROOM RECORDING
 # =========================================================
 
@@ -405,12 +415,16 @@ for room in range(1, TOTAL_ROOMS + 1):
 st.divider()
 
 if st.button(
-    "🔄 Reset",
+    "🔄 Reset All",
     use_container_width=True
 ):
 
     st.session_state.rooms_completed = 0
     st.session_state.finished_rooms = {}
+
+    st.session_state.room_notes = {
+        room: "" for room in range(1, TOTAL_ROOMS + 1)
+    }
 
     st.rerun()
 
