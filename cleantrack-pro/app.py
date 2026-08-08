@@ -1,3 +1,6 @@
+# CleanTrack Pro
+# Developed by Heider Jeffer
+
 import streamlit as st
 from datetime import datetime, time, timedelta
 
@@ -6,7 +9,7 @@ from datetime import datetime, time, timedelta
 # =========================================================
 
 st.set_page_config(
-    page_title="Heider Jeffer | Cleaning Tracker",
+    page_title="Cleaning Tracker",
     page_icon="🧹",
     layout="wide"
 )
