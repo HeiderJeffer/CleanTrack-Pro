@@ -80,10 +80,11 @@ st.caption(
 # TABS
 # =========================================================
 
-dashboard_tab, history_tab = st.tabs(
+dashboard_tab, history_tab, materials_tab = st.tabs(
     [
         "🧹 Dashboard",
-        "📚 History"
+        "📚 History",
+        "📦 Materials"
     ]
 )
 
