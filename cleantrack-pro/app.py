@@ -738,4 +738,3 @@ with history_tab:
         st.error(
             str(e)
         )
-
