@@ -83,8 +83,9 @@ st.caption(
 dashboard_tab, history_tab, materials_tab = st.tabs(
     [
         "🧹 Dashboard",
+        "📦 Materials & Consumption"
         "📚 History",
-        "📦 Materials"
+
     ]
 )
 
