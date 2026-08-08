@@ -1,15 +1,12 @@
-# CleanTrack Pro
-# Developed by Heider Jeffer
-
 import streamlit as st
 from datetime import datetime, time, timedelta
 
 # =========================================================
-# PAGE
+# PAGE CONFIGURATION
 # =========================================================
 
 st.set_page_config(
-    page_title="Cleaning Tracker",
+    page_title="CleanTrack Pro",
     page_icon="🧹",
     layout="wide"
 )
@@ -30,27 +27,13 @@ st.markdown("""
 .subtitle {
     color: #777;
     font-size: 18px;
+    margin-bottom: 5px;
+}
+
+.developer {
+    color: #888;
+    font-size: 14px;
     margin-bottom: 25px;
-}
-
-.card {
-    padding: 20px;
-    border-radius: 15px;
-    background-color: #f5f5f5;
-    text-align: center;
-    margin-bottom: 15px;
-}
-
-.big-number {
-    font-size: 32px;
-    font-weight: 700;
-}
-
-.room-card {
-    padding: 15px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    margin-bottom: 10px;
 }
 
 </style>
@@ -94,12 +77,19 @@ if "finished_rooms" not in st.session_state:
 # =========================================================
 
 st.markdown(
-    '<div class="main-title">🧹 Heider Jeffer</div>',
+    '<div class="main-title">🧹 CleanTrack Pro</div>',
     unsafe_allow_html=True
 )
 
 st.markdown(
-    '<div class="subtitle">Cleaning Time Tracker</div>',
+    '<div class="subtitle">Smart Cleaning Time Tracker</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="developer">'
+    'Developed by <b>Heider Jeffer</b>'
+    '</div>',
     unsafe_allow_html=True
 )
 
@@ -110,14 +100,12 @@ st.markdown(
 col1, col2 = st.columns([3, 1])
 
 with col1:
-
     st.info(
         "Click **Finish Room** when you finish cleaning a room. "
         "The app will automatically calculate the remaining time."
     )
 
 with col2:
-
     if st.button(
         "🔄 Reset All",
         use_container_width=True
@@ -149,35 +137,28 @@ rooms_completed = len(
     st.session_state.finished_rooms
 )
 
-rooms_remaining = (
-    TOTAL_ROOMS - rooms_completed
-)
+rooms_remaining = TOTAL_ROOMS - rooms_completed
 
-# Calculate available minutes until 13:00
+# Time available until 1:00 PM
 minutes_available = (
     END_TIME - current_time
 ).total_seconds() / 60
 
-# Remove break if it is still ahead
+# Remove the 20-minute break if it has not happened yet
 if current_time < BREAK_START:
-
     minutes_available -= 20
 
-# Never show negative
 minutes_available = max(
     0,
     minutes_available
 )
 
-# Minutes per room
+# Calculate minutes available per room
 if rooms_remaining > 0:
-
     minutes_per_room = (
         minutes_available / rooms_remaining
     )
-
 else:
-
     minutes_per_room = 0
 
 # =========================================================
@@ -189,28 +170,24 @@ st.subheader("📊 Your Progress")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-
     st.metric(
         "Rooms Done",
         f"{rooms_completed}/{TOTAL_ROOMS}"
     )
 
 with col2:
-
     st.metric(
         "Rooms Left",
         rooms_remaining
     )
 
 with col3:
-
     st.metric(
         "Time Left",
         f"{minutes_available:.0f} min"
     )
 
 with col4:
-
     st.metric(
         "Min / Room",
         f"{minutes_per_room:.1f}"
@@ -220,9 +197,7 @@ with col4:
 # PROGRESS BAR
 # =========================================================
 
-progress = (
-    rooms_completed / TOTAL_ROOMS
-)
+progress = rooms_completed / TOTAL_ROOMS
 
 st.progress(progress)
 
@@ -269,9 +244,7 @@ st.divider()
 
 st.subheader("☕ Break")
 
-st.write(
-    "**10:00 AM – 10:20 AM**"
-)
+st.write("**10:00 AM – 10:20 AM**")
 
 # =========================================================
 # ROOMS
@@ -281,7 +254,6 @@ st.divider()
 
 st.subheader("🛏️ Rooms")
 
-# Create 4 columns
 columns = st.columns(4)
 
 for room in range(1, TOTAL_ROOMS + 1):
@@ -290,10 +262,7 @@ for room in range(1, TOTAL_ROOMS + 1):
 
     with col:
 
-        # -------------------------------------------------
-        # ROOM ALREADY FINISHED
-        # -------------------------------------------------
-
+        # Room already finished
         if room in st.session_state.finished_rooms:
 
             finished_at = (
@@ -305,10 +274,7 @@ for room in range(1, TOTAL_ROOMS + 1):
                 f"Finished: {finished_at}"
             )
 
-        # -------------------------------------------------
-        # ROOM NOT FINISHED
-        # -------------------------------------------------
-
+        # Room not finished
         else:
 
             if st.button(
@@ -317,7 +283,6 @@ for room in range(1, TOTAL_ROOMS + 1):
                 use_container_width=True
             ):
 
-                # Record current selected time
                 st.session_state.finished_rooms[
                     room
                 ] = current_time.strftime("%H:%M")
@@ -336,20 +301,14 @@ if rooms_remaining > 0:
 
     schedule_time = current_time
 
-    for room in range(
-        1,
-        TOTAL_ROOMS + 1
-    ):
+    for room in range(1, TOTAL_ROOMS + 1):
 
         if room not in st.session_state.finished_rooms:
 
             start = schedule_time
 
-            end = (
-                start +
-                timedelta(
-                    minutes=minutes_per_room
-                )
+            end = start + timedelta(
+                minutes=minutes_per_room
             )
 
             st.write(
@@ -363,9 +322,7 @@ if rooms_remaining > 0:
 
 else:
 
-    st.success(
-        "No rooms remaining."
-    )
+    st.success("No rooms remaining.")
 
 # =========================================================
 # FINISH TIME
@@ -392,6 +349,4 @@ if rooms_remaining > 0:
 
 else:
 
-    st.success(
-        "🏆 Work completed!"
-    )
+    st.success("🏆 Work completed!")
