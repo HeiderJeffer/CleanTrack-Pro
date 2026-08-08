@@ -95,7 +95,7 @@ st.markdown(
 )
 
 # =========================================================
-# QUICK SETUP
+# CURRENT WORK STATUS
 # =========================================================
 
 st.subheader("⚙️ Current Work Status")
@@ -103,14 +103,12 @@ st.subheader("⚙️ Current Work Status")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-
     current_time_input = st.time_input(
         "Current time",
         value=time(10, 0)
     )
 
 with col2:
-
     rooms_completed = st.number_input(
         "Rooms already finished",
         min_value=0,
@@ -120,7 +118,6 @@ with col2:
     )
 
 with col3:
-
     corridor_finished = st.checkbox(
         "Corridor already finished",
         value=False
@@ -139,9 +136,7 @@ current_time = datetime.combine(
 # ROOMS REMAINING
 # =========================================================
 
-rooms_remaining = (
-    TOTAL_ROOMS - rooms_completed
-)
+rooms_remaining = TOTAL_ROOMS - rooms_completed
 
 # =========================================================
 # CALCULATE AVAILABLE TIME
@@ -151,29 +146,40 @@ minutes_available = (
     END_TIME - current_time
 ).total_seconds() / 60
 
-# Remove the break only if the current time
-# is before the break.
+# Remove the 20-minute break if current time is before break
 if current_time < BREAK_START:
     minutes_available -= 20
 
-minutes_available = max(
-    0,
-    minutes_available
-)
+minutes_available = max(0, minutes_available)
 
 # =========================================================
 # MINUTES PER ROOM
 # =========================================================
 
 if rooms_remaining > 0:
-
     minutes_per_room = (
         minutes_available / rooms_remaining
     )
-
 else:
-
     minutes_per_room = 0
+
+# =========================================================
+# FORMAT TIME
+# =========================================================
+
+def format_duration(total_minutes):
+    total_minutes = max(0, int(round(total_minutes)))
+
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+
+    if hours > 0:
+        if minutes > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{hours}h"
+    else:
+        return f"{minutes}m"
 
 # =========================================================
 # DASHBOARD
@@ -186,28 +192,24 @@ st.subheader("📊 Current Situation")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-
     st.metric(
         "Rooms Completed",
         f"{rooms_completed}/{TOTAL_ROOMS}"
     )
 
 with col2:
-
     st.metric(
         "Rooms Remaining",
         rooms_remaining
     )
 
 with col3:
-
     st.metric(
         "Time Available",
-        f"{minutes_available:.0f} min"
+        format_duration(minutes_available)
     )
 
 with col4:
-
     st.metric(
         "Minutes / Room",
         f"{minutes_per_room:.1f}"
@@ -267,7 +269,7 @@ st.subheader("☕ Break")
 st.write("**10:00 AM – 10:20 AM**")
 
 # =========================================================
-# QUICK EXAMPLE
+# EXAMPLE
 # =========================================================
 
 st.divider()
@@ -280,9 +282,11 @@ st.write(
 )
 
 st.write(
-    f"That gives you approximately "
-    f"**{120 / 5:.0f} minutes per room** "
-    "until 1:00 PM."
+    "You have **2h 0m** available until 1:00 PM."
+)
+
+st.write(
+    "That gives you approximately **24 minutes per room**."
 )
 
 # =========================================================
@@ -356,7 +360,7 @@ else:
     )
 
 # =========================================================
-# ROOM BUTTONS
+# INDIVIDUAL ROOM RECORDING
 # =========================================================
 
 st.divider()
@@ -364,8 +368,8 @@ st.divider()
 st.subheader("🛏️ Record Individual Rooms")
 
 st.caption(
-    "You can also use these buttons if you want to record "
-    "rooms one by one."
+    "You can also use these buttons to record rooms "
+    "one by one."
 )
 
 columns = st.columns(4)
@@ -409,3 +413,4 @@ if st.button(
     st.session_state.finished_rooms = {}
 
     st.rerun()
+
