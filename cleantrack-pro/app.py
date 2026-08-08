@@ -1062,3 +1062,418 @@ with history_tab:
         st.code(
             str(e)
         )
+
+
+# =========================================================
+# MATERIALS
+# =========================================================
+
+with materials_tab:
+
+    st.subheader("📦 Cleaning Materials")
+
+    now = datetime.now()
+
+    work_date = now.strftime("%d/%m/%Y")
+    day_name = now.strftime("%A")
+
+    st.info(
+        f"📅 **{day_name} — {work_date}**"
+    )
+
+    st.caption(
+        "Record the cleaning materials used during the working day."
+    )
+
+    # =====================================================
+    # WATER
+    # =====================================================
+
+    st.divider()
+
+    st.subheader("💧 Water")
+
+    water_liters = st.number_input(
+        "Water used (liters)",
+        min_value=0.0,
+        value=0.0,
+        step=0.5,
+        format="%.2f"
+    )
+
+    # =====================================================
+    # CLEANING MATERIALS
+    # =====================================================
+
+    st.divider()
+
+    st.subheader("🧴 Cleaning Materials")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        detergent_liters = st.number_input(
+            "🧴 Detergent (liters)",
+            min_value=0.0,
+            value=0.0,
+            step=0.1,
+            format="%.2f"
+        )
+
+        disinfectant_liters = st.number_input(
+            "🧪 Disinfectant (liters)",
+            min_value=0.0,
+            value=0.0,
+            step=0.1,
+            format="%.2f"
+        )
+
+    with col2:
+
+        glass_cleaner_liters = st.number_input(
+            "🪟 Glass cleaner (liters)",
+            min_value=0.0,
+            value=0.0,
+            step=0.1,
+            format="%.2f"
+        )
+
+        other_material = st.text_input(
+            "Other material",
+            placeholder="Example: Floor cleaner"
+        )
+
+        other_quantity = st.number_input(
+            "Other quantity",
+            min_value=0.0,
+            value=0.0,
+            step=0.1,
+            format="%.2f"
+        )
+
+        other_unit = st.selectbox(
+            "Unit",
+            [
+                "liters",
+                "kg",
+                "pieces",
+                "bottles",
+                "boxes"
+            ]
+        )
+
+    # =====================================================
+    # NOTES
+    # =====================================================
+
+    st.divider()
+
+    st.subheader("📝 Notes")
+
+    material_notes = st.text_area(
+        "Material notes",
+        placeholder=(
+            "Example: Used extra disinfectant "
+            "in rooms 5–8."
+        ),
+        height=100
+    )
+
+    # =====================================================
+    # TOTALS
+    # =====================================================
+
+    st.divider()
+
+    st.subheader("📊 Today's Consumption")
+
+    total_liquid = (
+        water_liters
+        + detergent_liters
+        + disinfectant_liters
+        + glass_cleaner_liters
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.metric(
+            "Total Water",
+            f"{water_liters:.2f} L"
+        )
+
+    with col2:
+
+        st.metric(
+            "Total Other Liquids",
+            f"{(
+                detergent_liters
+                + disinfectant_liters
+                + glass_cleaner_liters
+            ):.2f} L"
+        )
+
+    # =====================================================
+    # SAVE
+    # =====================================================
+
+    st.divider()
+
+    if st.button(
+        "💾 Save Materials",
+        type="primary",
+        use_container_width=True
+    ):
+
+        material_record = {
+
+            "work_date":
+                now.date().isoformat(),
+
+            "day_name":
+                day_name,
+
+            "water_liters":
+                float(water_liters),
+
+            "detergent_liters":
+                float(detergent_liters),
+
+            "disinfectant_liters":
+                float(
+                    disinfectant_liters
+                ),
+
+            "glass_cleaner_liters":
+                float(
+                    glass_cleaner_liters
+                ),
+
+            "other_material":
+                other_material.strip(),
+
+            "other_quantity":
+                float(other_quantity),
+
+            "other_unit":
+                other_unit,
+
+            "notes":
+                material_notes.strip()
+        }
+
+        try:
+
+            response = (
+                supabase
+                .table(
+                    "cleaning_materials"
+                )
+                .insert(
+                    material_record
+                )
+                .execute()
+            )
+
+            st.success(
+                "✅ Cleaning materials saved successfully!"
+            )
+
+        except Exception as e:
+
+            st.error(
+                "❌ Failed to save materials."
+            )
+
+            st.code(str(e))
+
+    # =====================================================
+    # MATERIAL HISTORY
+    # =====================================================
+
+    st.divider()
+
+    st.subheader(
+        "📚 Materials History"
+    )
+
+    if st.button(
+        "🔄 Refresh Materials",
+        use_container_width=True
+    ):
+
+        st.rerun()
+
+    try:
+
+        response = (
+            supabase
+            .table(
+                "cleaning_materials"
+            )
+            .select("*")
+            .order(
+                "work_date",
+                desc=False
+            )
+            .execute()
+        )
+
+        material_records = (
+            response.data or []
+        )
+
+        st.caption(
+            f"Database records found: "
+            f"{len(material_records)}"
+        )
+
+        if material_records:
+
+            materials_df = pd.DataFrame(
+                material_records
+            )
+
+            materials_df.insert(
+                0,
+                "Day",
+                range(
+                    1,
+                    len(materials_df) + 1
+                )
+            )
+
+            materials_df["work_date"] = (
+                pd.to_datetime(
+                    materials_df["work_date"]
+                ).dt.strftime(
+                    "%d/%m/%Y"
+                )
+            )
+
+            display_columns = [
+                "Day",
+                "day_name",
+                "work_date",
+                "water_liters",
+                "detergent_liters",
+                "disinfectant_liters",
+                "glass_cleaner_liters",
+                "other_material",
+                "other_quantity",
+                "other_unit",
+                "notes"
+            ]
+
+            existing_columns = [
+                column
+                for column in display_columns
+                if column in materials_df.columns
+            ]
+
+            st.dataframe(
+                materials_df[
+                    existing_columns
+                ],
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # =============================================
+            # TOTAL CONSUMPTION
+            # =============================================
+
+            st.divider()
+
+            st.subheader(
+                "📊 Total Consumption"
+            )
+
+            total_water = pd.to_numeric(
+                materials_df["water_liters"],
+                errors="coerce"
+            ).sum()
+
+            total_detergent = pd.to_numeric(
+                materials_df["detergent_liters"],
+                errors="coerce"
+            ).sum()
+
+            total_disinfectant = pd.to_numeric(
+                materials_df["disinfectant_liters"],
+                errors="coerce"
+            ).sum()
+
+            total_glass = pd.to_numeric(
+                materials_df["glass_cleaner_liters"],
+                errors="coerce"
+            ).sum()
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+
+                st.metric(
+                    "💧 Water",
+                    f"{total_water:.2f} L"
+                )
+
+            with col2:
+
+                st.metric(
+                    "🧴 Detergent",
+                    f"{total_detergent:.2f} L"
+                )
+
+            with col3:
+
+                st.metric(
+                    "🧪 Disinfectant",
+                    f"{total_disinfectant:.2f} L"
+                )
+
+            with col4:
+
+                st.metric(
+                    "🪟 Glass Cleaner",
+                    f"{total_glass:.2f} L"
+                )
+
+            # =============================================
+            # EXPORT
+            # =============================================
+
+            st.divider()
+
+            csv_materials = (
+                materials_df.to_csv(
+                    index=False
+                )
+            )
+
+            st.download_button(
+                label="📥 Download Materials CSV",
+                data=csv_materials,
+                file_name=(
+                    "cleantrack_materials.csv"
+                ),
+                mime="text/csv",
+                use_container_width=True
+            )
+
+        else:
+
+            st.info(
+                "📭 No materials records saved yet."
+            )
+
+    except Exception as e:
+
+        st.error(
+            "❌ Could not load materials history."
+        )
+
+        st.code(str(e))
+
