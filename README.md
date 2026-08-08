@@ -2,15 +2,8 @@
 
 ***Built with Python by Heider Jeffer*** 🧹💙
 
+🌐 [Launch CleanTrack Pro](https://cleantrack-pro-tt6jexd3rj3nkpc8ctenmm.streamlit.app/#clean-track-pro)
 
-### 🌐 [Launch Web App](https://cleantrack-pro-tt6jexd3rj3nkpc8ctenmm.streamlit.app/#clean-track-pro)
-
-
----
-
-⭐ If you find this project useful, feel free to star the repository!
-
----
 
 ### Smart Cleaning Time Tracker
 
@@ -63,5 +56,8 @@ This helps make cleaning operations easier to monitor and provides useful data f
 * 📱 Mobile-friendly web interface
 
 ---
+
+⭐ If you find this project useful, feel free to star the repository!
+
 
 
