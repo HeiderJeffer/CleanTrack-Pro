@@ -30,6 +30,37 @@ BREAK_START = time(10, 0)
 BREAK_END = time(10, 20)
 
 # =========================================================
+# MATERIAL CONSUMPTION RATES
+# =========================================================
+
+# Normal daily consumption
+WATER_PER_DAY = 12.0
+
+# Weekly consumption
+FLOOR_SANITARY_BOTTLES_PER_WEEK = 1.0
+GLASS_CLEANER_BOTTLES_PER_WEEK = 1.0
+BATHROOM_BARRIER_FLOOR_BOTTLES_PER_WEEK = 1.0
+
+# 5 working days per week
+WORKING_DAYS_PER_WEEK = 5
+
+# Daily estimated bottle consumption
+FLOOR_SANITARY_PER_DAY = (
+    FLOOR_SANITARY_BOTTLES_PER_WEEK
+    / WORKING_DAYS_PER_WEEK
+)
+
+GLASS_CLEANER_PER_DAY = (
+    GLASS_CLEANER_BOTTLES_PER_WEEK
+    / WORKING_DAYS_PER_WEEK
+)
+
+BATHROOM_BARRIER_FLOOR_PER_DAY = (
+    BATHROOM_BARRIER_FLOOR_BOTTLES_PER_WEEK
+    / WORKING_DAYS_PER_WEEK
+)
+
+# =========================================================
 # SUPABASE CONNECTION
 # =========================================================
 
@@ -83,9 +114,8 @@ st.caption(
 dashboard_tab, history_tab, materials_tab = st.tabs(
     [
         "🧹 Dashboard",
-        "📦 Materials & Consumption"
         "📚 History",
-
+        "📦 Materials & Consumption"
     ]
 )
 
@@ -104,10 +134,7 @@ def format_minutes(minutes):
     if hours > 0:
 
         if mins > 0:
-
-            return (
-                f"{hours}h {mins}m"
-            )
+            return f"{hours}h {mins}m"
 
         return f"{hours}h"
 
@@ -193,11 +220,6 @@ with dashboard_tab:
     break_start_minutes = (
         BREAK_START.hour * 60
         + BREAK_START.minute
-    )
-
-    break_end_minutes = (
-        BREAK_END.hour * 60
-        + BREAK_END.minute
     )
 
 
@@ -566,10 +588,6 @@ with dashboard_tab:
         use_container_width=True
     ):
 
-        # -----------------------------------------------
-        # SAVE ONLY NOTES THAT CONTAIN TEXT
-        # -----------------------------------------------
-
         notes_to_save = {}
 
 
@@ -584,18 +602,10 @@ with dashboard_tab:
                 )
 
 
-        # -----------------------------------------------
-        # DAY NAME
-        # -----------------------------------------------
-
         day_name = now.strftime(
             "%A"
         )
 
-
-        # -----------------------------------------------
-        # DATABASE RECORD
-        # -----------------------------------------------
 
         record = {
 
@@ -646,13 +656,9 @@ with dashboard_tab:
         }
 
 
-        # -----------------------------------------------
-        # SAVE TO SUPABASE
-        # -----------------------------------------------
-
         try:
 
-            response = (
+            (
                 supabase
                 .table(
                     "cleaning_days"
@@ -702,10 +708,6 @@ with history_tab:
 
     try:
 
-        # -------------------------------------------------
-        # GET DATA FROM SUPABASE
-        # -------------------------------------------------
-
         response = (
             supabase
             .table(
@@ -738,19 +740,11 @@ with history_tab:
         )
 
 
-        # -------------------------------------------------
-        # RECORD COUNT
-        # -------------------------------------------------
-
         st.caption(
             f"Database records found: "
             f"{len(records)}"
         )
 
-
-        # -------------------------------------------------
-        # NO DATA
-        # -------------------------------------------------
 
         if len(records) == 0:
 
@@ -767,10 +761,6 @@ with history_tab:
             )
 
 
-            # =============================================
-            # DAY NUMBER
-            # =============================================
-
             df.insert(
                 0,
                 "Day",
@@ -781,10 +771,6 @@ with history_tab:
             )
 
 
-            # =============================================
-            # EUROPEAN DATE
-            # =============================================
-
             df["work_date"] = (
                 pd.to_datetime(
                     df["work_date"]
@@ -794,10 +780,6 @@ with history_tab:
                 )
             )
 
-
-            # =============================================
-            # SUMMARY
-            # =============================================
 
             st.subheader(
                 "📊 Summary"
@@ -853,10 +835,6 @@ with history_tab:
                 )
 
 
-            # =============================================
-            # HISTORY TABLE
-            # =============================================
-
             st.divider()
 
             st.subheader(
@@ -906,10 +884,6 @@ with history_tab:
                 hide_index=True
             )
 
-
-            # =============================================
-            # ROOM NOTES
-            # =============================================
 
             st.divider()
 
@@ -980,7 +954,6 @@ with history_tab:
                             dict
                         ):
 
-
                             for room, note in (
                                 notes.items()
                             ):
@@ -989,7 +962,6 @@ with history_tab:
                                     f"**Room {room}:** "
                                     f"{note}"
                                 )
-
 
                         else:
 
@@ -1005,10 +977,6 @@ with history_tab:
                     "saved yet."
                 )
 
-
-            # =============================================
-            # DOWNLOAD
-            # =============================================
 
             st.divider()
 
@@ -1067,164 +1035,223 @@ with history_tab:
 
 
 # =========================================================
-# MATERIALS
+# MATERIALS & CONSUMPTION
 # =========================================================
 
 with materials_tab:
 
-    st.subheader("📦 Cleaning Materials")
+    st.subheader(
+        "📦 Materials & Consumption"
+    )
 
     now = datetime.now()
 
-    work_date = now.strftime("%d/%m/%Y")
-    day_name = now.strftime("%A")
+    work_date = now.strftime(
+        "%d/%m/%Y"
+    )
+
+    day_name = now.strftime(
+        "%A"
+    )
 
     st.info(
         f"📅 **{day_name} — {work_date}**"
     )
 
+
     st.caption(
-        "Record the cleaning materials used during the working day."
+        "Estimated consumption is calculated "
+        "from the worker's cleaning activity."
     )
 
+
     # =====================================================
-    # WATER
+    # GET TODAY'S WORK
+    # =====================================================
+
+    today_rooms = 0
+
+    try:
+
+        today_response = (
+            supabase
+            .table(
+                "cleaning_days"
+            )
+            .select(
+                "rooms_completed"
+            )
+            .eq(
+                "work_date",
+                now.date().isoformat()
+            )
+            .order(
+                "created_at",
+                desc=True
+            )
+            .limit(1)
+            .execute()
+        )
+
+        today_records = (
+            today_response.data
+            or []
+        )
+
+        if today_records:
+
+            today_rooms = int(
+                today_records[0].get(
+                    "rooms_completed",
+                    0
+                )
+            )
+
+    except Exception:
+
+        today_rooms = 0
+
+
+    # =====================================================
+    # ROOMS COMPLETED
     # =====================================================
 
     st.divider()
 
-    st.subheader("💧 Water")
-
-    water_liters = st.number_input(
-        "Water used (liters)",
-        min_value=0.0,
-        value=0.0,
-        step=0.5,
-        format="%.2f"
+    st.subheader(
+        "🛏️ Cleaning Activity"
     )
 
+    rooms_for_consumption = st.number_input(
+        "Rooms cleaned today",
+        min_value=0,
+        max_value=TOTAL_ROOMS,
+        value=today_rooms,
+        step=1
+    )
+
+
     # =====================================================
-    # CLEANING MATERIALS
+    # CALCULATE CONSUMPTION
+    # =====================================================
+
+    # Consumption is based on a full working day.
+    # If the worker cleans fewer than 16 rooms,
+    # consumption is estimated proportionally.
+
+    room_factor = (
+        rooms_for_consumption
+        / TOTAL_ROOMS
+    )
+
+
+    estimated_water = (
+        WATER_PER_DAY
+        * room_factor
+    )
+
+
+    estimated_floor_sanitary = (
+        FLOOR_SANITARY_PER_DAY
+        * room_factor
+    )
+
+
+    estimated_glass_cleaner = (
+        GLASS_CLEANER_PER_DAY
+        * room_factor
+    )
+
+
+    estimated_bathroom_cleaner = (
+        BATHROOM_BARRIER_FLOOR_PER_DAY
+        * room_factor
+    )
+
+
+    # =====================================================
+    # CONSUMPTION DISPLAY
     # =====================================================
 
     st.divider()
 
-    st.subheader("🧴 Cleaning Materials")
+    st.subheader(
+        "📊 Estimated Daily Consumption"
+    )
+
 
     col1, col2 = st.columns(2)
 
-    with col1:
-
-        detergent_liters = st.number_input(
-            "🧴 Detergent (liters)",
-            min_value=0.0,
-            value=0.0,
-            step=0.1,
-            format="%.2f"
-        )
-
-        disinfectant_liters = st.number_input(
-            "🧪 Disinfectant (liters)",
-            min_value=0.0,
-            value=0.0,
-            step=0.1,
-            format="%.2f"
-        )
-
-    with col2:
-
-        glass_cleaner_liters = st.number_input(
-            "🪟 Glass cleaner (liters)",
-            min_value=0.0,
-            value=0.0,
-            step=0.1,
-            format="%.2f"
-        )
-
-        other_material = st.text_input(
-            "Other material",
-            placeholder="Example: Floor cleaner"
-        )
-
-        other_quantity = st.number_input(
-            "Other quantity",
-            min_value=0.0,
-            value=0.0,
-            step=0.1,
-            format="%.2f"
-        )
-
-        other_unit = st.selectbox(
-            "Unit",
-            [
-                "liters",
-                "kg",
-                "pieces",
-                "bottles",
-                "boxes"
-            ]
-        )
-
-    # =====================================================
-    # NOTES
-    # =====================================================
-
-    st.divider()
-
-    st.subheader("📝 Notes")
-
-    material_notes = st.text_area(
-        "Material notes",
-        placeholder=(
-            "Example: Used extra disinfectant "
-            "in rooms 5–8."
-        ),
-        height=100
-    )
-
-    # =====================================================
-    # TOTALS
-    # =====================================================
-
-    st.divider()
-
-    st.subheader("📊 Today's Consumption")
-
-    total_liquid = (
-        water_liters
-        + detergent_liters
-        + disinfectant_liters
-        + glass_cleaner_liters
-    )
-
-    col1, col2 = st.columns(2)
 
     with col1:
 
         st.metric(
-            "Total Water",
-            f"{water_liters:.2f} L"
+            "💧 Water",
+            f"{estimated_water:.2f} L"
         )
+
+        st.metric(
+            "🧴 Floor & Sanitary Cleaner",
+            f"{estimated_floor_sanitary:.2f} bottle"
+        )
+
 
     with col2:
 
         st.metric(
-            "Total Other Liquids",
-            f"{(
-                detergent_liters
-                + disinfectant_liters
-                + glass_cleaner_liters
-            ):.2f} L"
+            "🪟 Glass Cleaner",
+            f"{estimated_glass_cleaner:.2f} bottle"
         )
 
+        st.metric(
+            "🚿 Bathroom Barrier & Floor Cleaner",
+            f"{estimated_bathroom_cleaner:.2f} bottle"
+        )
+
+
     # =====================================================
-    # SAVE
+    # FULL DAY REFERENCE
     # =====================================================
 
     st.divider()
+
+    st.subheader(
+        "📌 Full Working Day Reference"
+    )
+
+    st.write(
+        f"💧 Water: **{WATER_PER_DAY:.1f} L / day**"
+    )
+
+    st.write(
+        "🧴 Floor & sanitary facilities cleaner: "
+        "**1 bottle / week**"
+    )
+
+    st.write(
+        "🪟 Glass cleaner: "
+        "**1 bottle / week**"
+    )
+
+    st.write(
+        "🚿 Bathroom barrier & floor cleaner: "
+        "**1 bottle / week**"
+    )
+
+
+    # =====================================================
+    # SAVE DAILY CONSUMPTION
+    # =====================================================
+
+    st.divider()
+
+    st.subheader(
+        "💾 Save Today's Consumption"
+    )
+
 
     if st.button(
-        "💾 Save Materials",
+        "💾 Save Consumption",
         type="primary",
         use_container_width=True
     ):
@@ -1238,37 +1265,50 @@ with materials_tab:
                 day_name,
 
             "water_liters":
-                float(water_liters),
+                round(
+                    estimated_water,
+                    2
+                ),
 
             "detergent_liters":
-                float(detergent_liters),
+                round(
+                    estimated_floor_sanitary,
+                    2
+                ),
 
             "disinfectant_liters":
-                float(
-                    disinfectant_liters
+                round(
+                    estimated_bathroom_cleaner,
+                    2
                 ),
 
             "glass_cleaner_liters":
-                float(
-                    glass_cleaner_liters
+                round(
+                    estimated_glass_cleaner,
+                    2
                 ),
 
             "other_material":
-                other_material.strip(),
+                "Estimated consumption",
 
             "other_quantity":
-                float(other_quantity),
+                0,
 
             "other_unit":
-                other_unit,
+                "N/A",
 
             "notes":
-                material_notes.strip()
+                (
+                    f"Estimated from "
+                    f"{rooms_for_consumption} "
+                    f"rooms cleaned."
+                )
         }
+
 
         try:
 
-            response = (
+            (
                 supabase
                 .table(
                     "cleaning_materials"
@@ -1279,17 +1319,23 @@ with materials_tab:
                 .execute()
             )
 
+
             st.success(
-                "✅ Cleaning materials saved successfully!"
+                "✅ Today's consumption "
+                "was saved successfully!"
             )
+
 
         except Exception as e:
 
             st.error(
-                "❌ Failed to save materials."
+                "❌ Failed to save consumption."
             )
 
-            st.code(str(e))
+            st.code(
+                str(e)
+            )
+
 
     # =====================================================
     # MATERIAL HISTORY
@@ -1298,15 +1344,17 @@ with materials_tab:
     st.divider()
 
     st.subheader(
-        "📚 Materials History"
+        "📚 Consumption History"
     )
 
+
     if st.button(
-        "🔄 Refresh Materials",
+        "🔄 Refresh Consumption",
         use_container_width=True
     ):
 
         st.rerun()
+
 
     try:
 
@@ -1323,20 +1371,25 @@ with materials_tab:
             .execute()
         )
 
+
         material_records = (
-            response.data or []
+            response.data
+            or []
         )
+
 
         st.caption(
             f"Database records found: "
             f"{len(material_records)}"
         )
 
+
         if material_records:
 
             materials_df = pd.DataFrame(
                 material_records
             )
+
 
             materials_df.insert(
                 0,
@@ -1347,33 +1400,48 @@ with materials_tab:
                 )
             )
 
+
             materials_df["work_date"] = (
                 pd.to_datetime(
-                    materials_df["work_date"]
-                ).dt.strftime(
+                    materials_df[
+                        "work_date"
+                    ]
+                )
+                .dt.strftime(
                     "%d/%m/%Y"
                 )
             )
 
+
             display_columns = [
+
                 "Day",
+
                 "day_name",
+
                 "work_date",
+
                 "water_liters",
+
                 "detergent_liters",
+
                 "disinfectant_liters",
+
                 "glass_cleaner_liters",
-                "other_material",
-                "other_quantity",
-                "other_unit",
+
                 "notes"
             ]
 
+
             existing_columns = [
+
                 column
+
                 for column in display_columns
+
                 if column in materials_df.columns
             ]
+
 
             st.dataframe(
                 materials_df[
@@ -1382,6 +1450,7 @@ with materials_tab:
                 use_container_width=True,
                 hide_index=True
             )
+
 
             # =============================================
             # TOTAL CONSUMPTION
@@ -1393,55 +1462,69 @@ with materials_tab:
                 "📊 Total Consumption"
             )
 
+
             total_water = pd.to_numeric(
-                materials_df["water_liters"],
+                materials_df[
+                    "water_liters"
+                ],
                 errors="coerce"
             ).sum()
 
-            total_detergent = pd.to_numeric(
-                materials_df["detergent_liters"],
+
+            total_floor = pd.to_numeric(
+                materials_df[
+                    "detergent_liters"
+                ],
                 errors="coerce"
             ).sum()
 
-            total_disinfectant = pd.to_numeric(
-                materials_df["disinfectant_liters"],
+
+            total_bathroom = pd.to_numeric(
+                materials_df[
+                    "disinfectant_liters"
+                ],
                 errors="coerce"
             ).sum()
+
 
             total_glass = pd.to_numeric(
-                materials_df["glass_cleaner_liters"],
+                materials_df[
+                    "glass_cleaner_liters"
+                ],
                 errors="coerce"
             ).sum()
 
-            col1, col2, col3, col4 = st.columns(4)
+
+            col1, col2 = st.columns(2)
+
 
             with col1:
 
                 st.metric(
-                    "💧 Water",
+                    "💧 Total Water",
                     f"{total_water:.2f} L"
                 )
+
+
+                st.metric(
+                    "🧴 Floor & Sanitary Cleaner",
+                    f"{total_floor:.2f} bottles"
+                )
+
 
             with col2:
 
                 st.metric(
-                    "🧴 Detergent",
-                    f"{total_detergent:.2f} L"
-                )
-
-            with col3:
-
-                st.metric(
-                    "🧪 Disinfectant",
-                    f"{total_disinfectant:.2f} L"
-                )
-
-            with col4:
-
-                st.metric(
                     "🪟 Glass Cleaner",
-                    f"{total_glass:.2f} L"
+                    f"{total_glass:.2f} bottles"
                 )
+
+
+                st.metric(
+                    "🚿 Bathroom Cleaner",
+                    f"{total_bathroom:.2f} bottles"
+                )
+
 
             # =============================================
             # EXPORT
@@ -1449,33 +1532,42 @@ with materials_tab:
 
             st.divider()
 
+            st.subheader(
+                "📥 Export Consumption Data"
+            )
+
+
             csv_materials = (
                 materials_df.to_csv(
                     index=False
                 )
             )
 
+
             st.download_button(
-                label="📥 Download Materials CSV",
+                label="📥 Download Consumption CSV",
                 data=csv_materials,
                 file_name=(
-                    "cleantrack_materials.csv"
+                    "cleantrack_consumption.csv"
                 ),
                 mime="text/csv",
                 use_container_width=True
             )
 
+
         else:
 
             st.info(
-                "📭 No materials records saved yet."
+                "📭 No consumption records saved yet."
             )
+
 
     except Exception as e:
 
         st.error(
-            "❌ Could not load materials history."
+            "❌ Could not load consumption history."
         )
 
-        st.code(str(e))
-
+        st.code(
+            str(e)
+        )
