@@ -3,9 +3,10 @@
 # Developed by Heider Jeffer
 
 import streamlit as st
-from datetime import datetime, time, timedelta
-from supabase import create_client
 import pandas as pd
+from datetime import datetime, time, timedelta
+import gspread
+from google.oauth2.service_account import Credentials
 
 
 # =========================================================
@@ -20,53 +21,61 @@ st.set_page_config(
 
 
 # =========================================================
-# SUPABASE CONNECTION
-# =========================================================
-
-@st.cache_resource
-def init_supabase():
-
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-
-    return create_client(url, key)
-
-
-supabase = init_supabase()
-
-
-# =========================================================
 # SETTINGS
 # =========================================================
 
 TOTAL_ROOMS = 16
 
-END_TIME = datetime.combine(
-    datetime.today(),
-    time(13, 0)
-)
+END_TIME = time(13, 0)
 
-BREAK_START = datetime.combine(
-    datetime.today(),
-    time(10, 0)
-)
-
-BREAK_END = datetime.combine(
-    datetime.today(),
-    time(10, 20)
-)
+BREAK_START = time(10, 0)
+BREAK_END = time(10, 20)
 
 
 # =========================================================
-# SESSION STATE
+# GOOGLE SHEETS CONNECTION
 # =========================================================
 
-if "room_notes" not in st.session_state:
+@st.cache_resource
+def connect_to_google_sheets():
 
-    st.session_state.room_notes = {
-        room: ""
-        for room in range(1, TOTAL_ROOMS + 1)
-    }
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes
+    )
+
+    client = gspread.authorize(credentials)
+
+    sheet = client.open(
+        st.secrets["google_sheet_name"]
+    ).sheet1
+
+    return sheet
+
+
+# =========================================================
+# INITIALIZE GOOGLE SHEETS
+# =========================================================
+
+try:
+
+    sheet = connect_to_google_sheets()
+
+except Exception as e:
+
+    st.error("❌ Google Sheets connection failed.")
+
+    st.info(
+        "Please check your Streamlit Secrets and "
+        "Google Sheets configuration."
+    )
+
+    st.stop()
 
 
 # =========================================================
@@ -108,7 +117,9 @@ st.markdown(
 )
 
 st.markdown(
-    '<div class="subtitle">Smart Cleaning Time Tracker</div>',
+    '<div class="subtitle">'
+    'Smart Cleaning Time Tracker'
+    '</div>',
     unsafe_allow_html=True
 )
 
@@ -136,7 +147,7 @@ dashboard_tab, history_tab = st.tabs(
 with dashboard_tab:
 
     # -----------------------------------------------------
-    # AUTOMATIC DATE
+    # DATE
     # -----------------------------------------------------
 
     today = datetime.now()
@@ -146,6 +157,7 @@ with dashboard_tab:
     st.info(
         f"Today: **{today.strftime('%d/%m/%Y')}**"
     )
+
 
     # -----------------------------------------------------
     # CURRENT WORK STATUS
@@ -175,38 +187,35 @@ with dashboard_tab:
     with col3:
 
         corridor_finished = st.checkbox(
-            "Corridor already finished",
-            value=False
+            "Corridor already finished"
         )
 
+
     # -----------------------------------------------------
-    # CURRENT TIME
+    # TIME CALCULATIONS
     # -----------------------------------------------------
 
-    current_time = datetime.combine(
-        datetime.today(),
-        current_time_input
+    current_minutes = (
+        current_time_input.hour * 60
+        + current_time_input.minute
     )
 
-    # -----------------------------------------------------
-    # ROOMS REMAINING
-    # -----------------------------------------------------
-
-    rooms_remaining = (
-        TOTAL_ROOMS - rooms_completed
+    end_minutes = (
+        END_TIME.hour * 60
+        + END_TIME.minute
     )
 
-    # -----------------------------------------------------
-    # AVAILABLE TIME
-    # -----------------------------------------------------
+    break_start_minutes = (
+        BREAK_START.hour * 60
+        + BREAK_START.minute
+    )
 
     minutes_available = (
-        END_TIME - current_time
-    ).total_seconds() / 60
+        end_minutes - current_minutes
+    )
 
-    # Remove 20-minute break if it has not happened yet
-    if current_time < BREAK_START:
-
+    # Remove 20-minute break if before 10 AM
+    if current_minutes < break_start_minutes:
         minutes_available -= 20
 
     minutes_available = max(
@@ -214,9 +223,14 @@ with dashboard_tab:
         minutes_available
     )
 
+
     # -----------------------------------------------------
-    # MINUTES PER ROOM
+    # ROOMS
     # -----------------------------------------------------
+
+    rooms_remaining = (
+        TOTAL_ROOMS - rooms_completed
+    )
 
     if rooms_remaining > 0:
 
@@ -229,32 +243,34 @@ with dashboard_tab:
 
         minutes_per_room = 0
 
+
     # -----------------------------------------------------
-    # FORMAT TIME
+    # FORMAT DURATION
     # -----------------------------------------------------
 
-    def format_duration(total_minutes):
+    def format_duration(minutes):
 
-        total_minutes = max(
+        minutes = max(
             0,
-            int(round(total_minutes))
+            int(round(minutes))
         )
 
-        hours = total_minutes // 60
-        minutes = total_minutes % 60
+        hours = minutes // 60
+        mins = minutes % 60
 
         if hours > 0:
 
-            if minutes > 0:
-                return f"{hours}h {minutes}m"
+            if mins > 0:
+                return f"{hours}h {mins}m"
 
             return f"{hours}h"
 
-        return f"{minutes}m"
+        return f"{mins}m"
 
-    # -----------------------------------------------------
-    # DASHBOARD METRICS
-    # -----------------------------------------------------
+
+    # =====================================================
+    # DASHBOARD
+    # =====================================================
 
     st.divider()
 
@@ -280,7 +296,9 @@ with dashboard_tab:
 
         st.metric(
             "Time Available",
-            format_duration(minutes_available)
+            format_duration(
+                minutes_available
+            )
         )
 
     with col4:
@@ -290,9 +308,10 @@ with dashboard_tab:
             f"{minutes_per_room:.1f}"
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # PROGRESS
-    # -----------------------------------------------------
+    # =====================================================
 
     progress = (
         rooms_completed /
@@ -306,9 +325,10 @@ with dashboard_tab:
         f"{TOTAL_ROOMS} rooms completed**"
     )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # STATUS
-    # -----------------------------------------------------
+    # =====================================================
 
     if rooms_remaining == 0:
 
@@ -340,9 +360,10 @@ with dashboard_tab:
             f"per room**."
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # BREAK
-    # -----------------------------------------------------
+    # =====================================================
 
     st.divider()
 
@@ -350,78 +371,112 @@ with dashboard_tab:
 
     st.write("**10:00 AM – 10:20 AM**")
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # REMAINING SCHEDULE
-    # -----------------------------------------------------
+    # =====================================================
 
     st.divider()
 
     st.subheader("🗓️ Remaining Room Plan")
 
-    if rooms_remaining > 0:
+    schedule_time = current_minutes
 
-        schedule_time = current_time
+    if rooms_remaining > 0:
 
         for room in range(
             rooms_completed + 1,
             TOTAL_ROOMS + 1
         ):
 
-            start = schedule_time
+            start_minutes = schedule_time
 
-            end = (
-                start +
-                timedelta(
-                    minutes=minutes_per_room
-                )
+            end_room_minutes = (
+                start_minutes +
+                minutes_per_room
             )
+
+            start_hour = int(
+                start_minutes // 60
+            )
+
+            start_minute = int(
+                start_minutes % 60
+            )
+
+            end_hour = int(
+                end_room_minutes // 60
+            )
+
+            end_minute = int(
+                end_room_minutes % 60
+            )
+
+            start_display = datetime(
+                2026,
+                1,
+                1,
+                start_hour % 24,
+                start_minute
+            ).strftime("%I:%M %p")
+
+            end_display = datetime(
+                2026,
+                1,
+                1,
+                end_hour % 24,
+                end_minute
+            ).strftime("%I:%M %p")
 
             st.write(
                 f"🛏️ **Room {room}:** "
-                f"{start.strftime('%I:%M %p')} → "
-                f"{end.strftime('%I:%M %p')} "
+                f"{start_display} → "
+                f"{end_display} "
                 f"(**{minutes_per_room:.1f} min**)"
             )
 
-            schedule_time = end
+            schedule_time = end_room_minutes
 
-    else:
 
-        st.success(
-            "🏆 All rooms completed!"
-        )
-
-    # -----------------------------------------------------
+    # =====================================================
     # EXPECTED FINISH
-    # -----------------------------------------------------
+    # =====================================================
 
     if rooms_remaining > 0:
 
-        expected_finish = (
-            current_time +
-            timedelta(
-                minutes=(
-                    rooms_remaining *
-                    minutes_per_room
-                )
+        finish_minutes = (
+            current_minutes +
+            (
+                rooms_remaining *
+                minutes_per_room
             )
         )
 
-        expected_finish_text = (
-            expected_finish.strftime(
-                "%I:%M %p"
-            )
+        finish_hour = int(
+            finish_minutes // 60
         )
+
+        finish_minute = int(
+            finish_minutes % 60
+        )
+
+        expected_finish = datetime(
+            2026,
+            1,
+            1,
+            finish_hour % 24,
+            finish_minute
+        ).strftime("%I:%M %p")
 
         st.info(
             f"🎯 **Expected finish: "
-            f"{expected_finish_text}**"
+            f"{expected_finish}**"
         )
 
     else:
 
-        expected_finish_text = (
-            current_time.strftime(
+        expected_finish = (
+            current_time_input.strftime(
                 "%I:%M %p"
             )
         )
@@ -430,26 +485,28 @@ with dashboard_tab:
             "🎉 Work completed!"
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # ROOM NOTES
-    # -----------------------------------------------------
+    # =====================================================
 
     st.divider()
 
     st.subheader("📝 Worker Notes")
 
     st.caption(
-        "Add any information about a room."
+        "Add notes for each room."
     )
+
+    room_notes = {}
 
     for room in range(
         1,
         TOTAL_ROOMS + 1
     ):
 
-        st.session_state.room_notes[room] = st.text_area(
+        room_notes[str(room)] = st.text_area(
             f"Room {room} – Notes",
-            value=st.session_state.room_notes[room],
             placeholder=(
                 "Example: towels missing, "
                 "maintenance needed..."
@@ -458,78 +515,70 @@ with dashboard_tab:
             height=70
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # SAVE WORKING DAY
-    # -----------------------------------------------------
+    # =====================================================
 
     st.divider()
 
     st.subheader("💾 Save Working Day")
-
-    st.write(
-        "Save today's cleaning information "
-        "to the database."
-    )
 
     if st.button(
         "💾 Save Today's Work",
         use_container_width=True
     ):
 
+        # Remove empty notes
+        notes_to_save = {
+            room: note
+            for room, note in room_notes.items()
+            if note.strip()
+        }
+
+        row = [
+
+            today.strftime(
+                "%d/%m/%Y"
+            ),
+
+            current_time_input.strftime(
+                "%H:%M"
+            ),
+
+            int(rooms_completed),
+
+            int(rooms_remaining),
+
+            format_duration(
+                minutes_available
+            ),
+
+            round(
+                minutes_per_room,
+                2
+            ),
+
+            "Yes"
+            if corridor_finished
+            else "No",
+
+            expected_finish,
+
+            str(notes_to_save)
+
+        ]
+
         try:
 
-            notes = {
-                str(room): st.session_state.room_notes[room]
-                for room in range(
-                    1,
-                    TOTAL_ROOMS + 1
-                )
-                if st.session_state.room_notes[room].strip()
-            }
-
-            record = {
-
-                "work_date":
-                    today.strftime("%Y-%m-%d"),
-
-                "current_time":
-                    current_time.strftime("%H:%M"),
-
-                "rooms_completed":
-                    int(rooms_completed),
-
-                "rooms_remaining":
-                    int(rooms_remaining),
-
-                "time_available_minutes":
-                    int(round(minutes_available)),
-
-                "minutes_per_room":
-                    round(
-                        minutes_per_room,
-                        2
-                    ),
-
-                "corridor_finished":
-                    bool(corridor_finished),
-
-                "expected_finish":
-                    expected_finish_text,
-
-                "room_notes":
-                    notes
-
-            }
-
-            supabase.table(
-                "cleaning_days"
-            ).insert(
-                record
-            ).execute()
+            sheet.append_row(
+                row,
+                value_input_option="USER_ENTERED"
+            )
 
             st.success(
                 "✅ Today's work has been "
-                "saved successfully!"
+                "saved to Google Sheets!"
             )
 
         except Exception as e:
@@ -538,9 +587,7 @@ with dashboard_tab:
                 "❌ Could not save the data."
             )
 
-            st.error(
-                str(e)
-            )
+            st.error(str(e))
 
 
 # =========================================================
@@ -551,39 +598,13 @@ with history_tab:
 
     st.subheader("📚 Working History")
 
-    st.write(
-        "All saved working days from CleanTrack Pro."
-    )
-
-    if st.button(
-        "🔄 Refresh History",
-        use_container_width=True
-    ):
-
-        st.rerun()
-
     try:
 
-        response = (
-            supabase
-            .table("cleaning_days")
-            .select("*")
-            .order(
-                "work_date",
-                desc=True
-            )
-            .execute()
-        )
+        data = sheet.get_all_records()
 
-        records = response.data
+        if data:
 
-        if records:
-
-            # ---------------------------------------------
-            # SUMMARY
-            # ---------------------------------------------
-
-            df = pd.DataFrame(records)
+            df = pd.DataFrame(data)
 
             st.subheader("📊 Summary")
 
@@ -598,31 +619,31 @@ with history_tab:
 
             with col2:
 
-                average_rooms = (
-                    df["rooms_completed"]
-                    .mean()
-                )
+                if "Rooms Completed" in df:
 
-                st.metric(
-                    "Average Rooms / Day",
-                    f"{average_rooms:.1f}"
-                )
+                    average_rooms = pd.to_numeric(
+                        df["Rooms Completed"],
+                        errors="coerce"
+                    ).mean()
+
+                    st.metric(
+                        "Average Rooms / Day",
+                        f"{average_rooms:.1f}"
+                    )
 
             with col3:
 
-                average_time = (
-                    df["minutes_per_room"]
-                    .mean()
-                )
+                if "Minutes / Room" in df:
 
-                st.metric(
-                    "Average Min / Room",
-                    f"{average_time:.1f}"
-                )
+                    average_time = pd.to_numeric(
+                        df["Minutes / Room"],
+                        errors="coerce"
+                    ).mean()
 
-            # ---------------------------------------------
-            # TABLE
-            # ---------------------------------------------
+                    st.metric(
+                        "Average Min / Room",
+                        f"{average_time:.1f}"
+                    )
 
             st.divider()
 
@@ -630,91 +651,21 @@ with history_tab:
                 "📅 Previous Working Days"
             )
 
-            display_columns = [
-                "work_date",
-                "current_time",
-                "rooms_completed",
-                "rooms_remaining",
-                "time_available_minutes",
-                "minutes_per_room",
-                "corridor_finished",
-                "expected_finish"
-            ]
-
-            available_columns = [
-                column
-                for column in display_columns
-                if column in df.columns
-            ]
-
             st.dataframe(
-                df[available_columns],
+                df,
                 use_container_width=True,
                 hide_index=True
             )
 
-            # ---------------------------------------------
-            # NOTES
-            # ---------------------------------------------
-
             st.divider()
 
-            st.subheader(
-                "📝 Room Notes"
-            )
-
-            for record in records:
-
-                work_date = record.get(
-                    "work_date",
-                    "Unknown date"
-                )
-
-                notes = record.get(
-                    "room_notes",
-                    {}
-                )
-
-                if notes:
-
-                    with st.expander(
-                        f"📅 {work_date}"
-                    ):
-
-                        for room, note in notes.items():
-
-                            st.write(
-                                f"**Room {room}:** "
-                                f"{note}"
-                            )
-
-            # ---------------------------------------------
-            # DOWNLOAD CSV
-            # ---------------------------------------------
-
-            st.divider()
-
-            st.subheader(
-                "📥 Export Data"
-            )
-
-            # Convert room notes to text
-            export_df = df.copy()
-
-            if "room_notes" in export_df.columns:
-
-                export_df["room_notes"] = (
-                    export_df["room_notes"]
-                    .apply(str)
-                )
-
-            csv_data = export_df.to_csv(
+            csv = df.to_csv(
                 index=False
             )
 
             st.download_button(
-                label="📥 Download History as CSV",
-                data=csv_data,
+                "📥 Download History as CSV",
+                data=csv,
                 file_name=(
                     "cleantrack_history.csv"
                 ),
@@ -725,16 +676,13 @@ with history_tab:
         else:
 
             st.info(
-                "📭 No working days have been "
-                "saved yet."
+                "📭 No working days saved yet."
             )
 
     except Exception as e:
 
         st.error(
-            "❌ Could not load the history."
+            "❌ Could not load history."
         )
 
-        st.error(
-            str(e)
-        )
+        st.error(str(e))
