@@ -22,6 +22,7 @@ st.set_page_config(
 # =========================================================
 
 TOTAL_ROOMS = 16
+
 START_TIME = time(8, 0)
 END_TIME = time(13, 0)
 
@@ -34,47 +35,78 @@ BREAK_END = time(10, 20)
 
 @st.cache_resource
 def get_supabase() -> Client:
+
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
+
     return create_client(url, key)
 
 
 try:
+
     supabase = get_supabase()
+
 except Exception as e:
-    st.error("❌ Could not connect to the database.")
-    st.write("Please check your Streamlit Secrets.")
+
+    st.error(
+        "❌ Could not connect to the database."
+    )
+
+    st.write(
+        "Please check your Streamlit Secrets."
+    )
+
     st.code(str(e))
+
     st.stop()
+
 
 # =========================================================
 # HEADER
 # =========================================================
 
 st.title("🧹 CleanTrack Pro")
-st.caption("Smart Cleaning Time Tracker")
-st.caption("Developed by Heider Jeffer")
+
+st.caption(
+    "Smart Cleaning Time Tracker"
+)
+
+st.caption(
+    "Developed by Heider Jeffer"
+)
+
 
 # =========================================================
 # TABS
 # =========================================================
 
 dashboard_tab, history_tab = st.tabs(
-    ["🧹 Dashboard", "📚 History"]
+    [
+        "🧹 Dashboard",
+        "📚 History"
+    ]
 )
 
+
 # =========================================================
-# HELPER
+# HELPER FUNCTION
 # =========================================================
 
 def format_minutes(minutes):
+
     minutes = int(round(minutes))
+
     hours = minutes // 60
     mins = minutes % 60
 
     if hours > 0:
+
         if mins > 0:
-            return f"{hours}h {mins}m"
+
+            return (
+                f"{hours}h {mins}m"
+            )
+
         return f"{hours}h"
 
     return f"{mins}m"
@@ -86,30 +118,46 @@ def format_minutes(minutes):
 
 with dashboard_tab:
 
-    now = datetime.now()
-    work_date = now.strftime("%d/%m/%Y")
+    # -----------------------------------------------------
+    # DATE
+    # -----------------------------------------------------
 
-    st.subheader("📅 Working Day")
+    now = datetime.now()
+
+    work_date = now.strftime(
+        "%d/%m/%Y"
+    )
+
+    st.subheader(
+        "📅 Working Day"
+    )
 
     st.info(
         f"Today: **{work_date}**"
     )
 
+
     # -----------------------------------------------------
     # INPUTS
     # -----------------------------------------------------
 
-    st.subheader("⚙️ Work Information")
+    st.subheader(
+        "⚙️ Work Information"
+    )
 
     col1, col2, col3 = st.columns(3)
 
+
     with col1:
+
         current_time = st.time_input(
             "Current time",
             value=time(8, 0)
         )
 
+
     with col2:
+
         rooms_completed = st.number_input(
             "Rooms completed",
             min_value=0,
@@ -118,10 +166,13 @@ with dashboard_tab:
             step=1
         )
 
+
     with col3:
+
         corridor_finished = st.checkbox(
             "Corridor finished"
         )
+
 
     # -----------------------------------------------------
     # CALCULATE MINUTES
@@ -147,43 +198,53 @@ with dashboard_tab:
         + BREAK_END.minute
     )
 
+
     # -----------------------------------------------------
     # AVAILABLE TIME
     # -----------------------------------------------------
 
     available_minutes = (
-        end_minutes - current_minutes
+        end_minutes
+        - current_minutes
     )
 
-    if (
-        current_minutes < break_start_minutes
-    ):
+
+    if current_minutes < break_start_minutes:
+
         available_minutes -= 20
+
 
     available_minutes = max(
         0,
         available_minutes
     )
 
+
     # -----------------------------------------------------
     # ROOMS
     # -----------------------------------------------------
 
     rooms_remaining = (
-        TOTAL_ROOMS - rooms_completed
+        TOTAL_ROOMS
+        - rooms_completed
     )
+
 
     # -----------------------------------------------------
     # TIME PER ROOM
     # -----------------------------------------------------
 
     if rooms_remaining > 0:
+
         minutes_per_room = (
             available_minutes
             / rooms_remaining
         )
+
     else:
+
         minutes_per_room = 0
+
 
     # =====================================================
     # CURRENT SITUATION
@@ -191,23 +252,33 @@ with dashboard_tab:
 
     st.divider()
 
-    st.subheader("📊 Current Situation")
+    st.subheader(
+        "📊 Current Situation"
+    )
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4 = (
+        st.columns(4)
+    )
+
 
     with col1:
+
         st.metric(
             "Rooms Completed",
             f"{rooms_completed}/{TOTAL_ROOMS}"
         )
 
+
     with col2:
+
         st.metric(
             "Rooms Remaining",
             rooms_remaining
         )
 
+
     with col3:
+
         st.metric(
             "Time Available",
             format_minutes(
@@ -215,11 +286,14 @@ with dashboard_tab:
             )
         )
 
+
     with col4:
+
         st.metric(
             "Minutes / Room",
             f"{minutes_per_room:.1f}"
         )
+
 
     # -----------------------------------------------------
     # PROGRESS
@@ -230,12 +304,15 @@ with dashboard_tab:
         / TOTAL_ROOMS
     )
 
-    st.progress(progress)
+    st.progress(
+        progress
+    )
 
     st.write(
         f"**{rooms_completed} of "
         f"{TOTAL_ROOMS} rooms completed**"
     )
+
 
     # =====================================================
     # STATUS
@@ -251,25 +328,26 @@ with dashboard_tab:
 
         st.success(
             f"🟢 You have "
-            f"{minutes_per_room:.1f} minutes "
-            f"per room."
+            f"{minutes_per_room:.1f} "
+            f"minutes per room."
         )
 
     elif minutes_per_room >= 10:
 
         st.warning(
             f"🟡 You have "
-            f"{minutes_per_room:.1f} minutes "
-            f"per room."
+            f"{minutes_per_room:.1f} "
+            f"minutes per room."
         )
 
     else:
 
         st.error(
             f"🔴 You have only "
-            f"{minutes_per_room:.1f} minutes "
-            f"per room."
+            f"{minutes_per_room:.1f} "
+            f"minutes per room."
         )
+
 
     # =====================================================
     # BREAK
@@ -277,11 +355,14 @@ with dashboard_tab:
 
     st.divider()
 
-    st.subheader("☕ Break")
+    st.subheader(
+        "☕ Break"
+    )
 
     st.write(
         "**10:00 AM – 10:20 AM**"
     )
+
 
     # =====================================================
     # EXPECTED FINISH
@@ -304,6 +385,7 @@ with dashboard_tab:
         finish_minute = int(
             finish_minutes % 60
         )
+
 
         if finish_hour < 24:
 
@@ -331,10 +413,12 @@ with dashboard_tab:
             )
         )
 
+
     st.info(
         f"🎯 **Expected finish: "
         f"{expected_finish}**"
     )
+
 
     # =====================================================
     # ROOM PLAN
@@ -346,9 +430,13 @@ with dashboard_tab:
         "🗓️ Remaining Room Plan"
     )
 
+
     if rooms_remaining > 0:
 
-        schedule_minutes = current_minutes
+        schedule_minutes = (
+            current_minutes
+        )
+
 
         for room in range(
             rooms_completed + 1,
@@ -363,6 +451,7 @@ with dashboard_tab:
                 start_minutes
                 + minutes_per_room
             )
+
 
             start_hour = int(
                 start_minutes // 60
@@ -380,6 +469,7 @@ with dashboard_tab:
                 end_room_minutes % 60
             )
 
+
             start_display = datetime(
                 2026,
                 1,
@@ -389,6 +479,7 @@ with dashboard_tab:
             ).strftime(
                 "%I:%M %p"
             )
+
 
             end_display = datetime(
                 2026,
@@ -400,12 +491,14 @@ with dashboard_tab:
                 "%I:%M %p"
             )
 
+
             st.write(
                 f"🛏️ **Room {room}:** "
                 f"{start_display} → "
                 f"{end_display} "
                 f"({minutes_per_room:.1f} min)"
             )
+
 
             schedule_minutes = (
                 end_room_minutes
@@ -416,6 +509,7 @@ with dashboard_tab:
         st.success(
             "🏆 All rooms completed!"
         )
+
 
     # =====================================================
     # ROOM NOTES
@@ -431,7 +525,9 @@ with dashboard_tab:
         "Add notes for each room."
     )
 
+
     room_notes = {}
+
 
     for room in range(
         1,
@@ -450,6 +546,7 @@ with dashboard_tab:
             )
         )
 
+
     # =====================================================
     # SAVE
     # =====================================================
@@ -460,74 +557,116 @@ with dashboard_tab:
         "💾 Save Working Day"
     )
 
+
     if st.button(
         "💾 Save Today's Work",
         type="primary",
         use_container_width=True
     ):
 
+        # -----------------------------------------------
+        # SAVE ONLY NOTES THAT CONTAIN TEXT
+        # -----------------------------------------------
+
         notes_to_save = {}
 
-        for room, note in room_notes.items():
+
+        for room, note in (
+            room_notes.items()
+        ):
 
             if note.strip():
+
                 notes_to_save[room] = (
                     note.strip()
                 )
 
+
+        # -----------------------------------------------
+        # DAY NAME
+        # -----------------------------------------------
+
+        day_name = now.strftime(
+            "%A"
+        )
+
+
+        # -----------------------------------------------
+        # DATABASE RECORD
+        # -----------------------------------------------
+
         record = {
 
-            "day_name": now.strftime("%A"),
+            "day_name":
+                day_name,
 
-            "work_date": (
-                now.date().isoformat()
-            ),
+            "work_date":
+                now.date().isoformat(),
 
-            "work_time": (
-                current_time.strftime("%H:%M")
-            ),
+            "work_time":
+                current_time.strftime(
+                    "%H:%M"
+                ),
 
-            "rooms_completed": int(
-                rooms_completed
-            ),
+            "rooms_completed":
+                int(
+                    rooms_completed
+                ),
 
-            "rooms_remaining": int(
-                rooms_remaining
-            ),
+            "rooms_remaining":
+                int(
+                    rooms_remaining
+                ),
 
-            "time_available_minutes": int(
-                round(available_minutes)
-            ),
+            "time_available_minutes":
+                int(
+                    round(
+                        available_minutes
+                    )
+                ),
 
-            "minutes_per_room": round(
-                minutes_per_room,
-                2
-            ),
+            "minutes_per_room":
+                round(
+                    minutes_per_room,
+                    2
+                ),
 
-            "corridor_finished": bool(
-                corridor_finished
-            ),
+            "corridor_finished":
+                bool(
+                    corridor_finished
+                ),
 
-            "expected_finish": (
-                expected_finish
-            ),
+            "expected_finish":
+                expected_finish,
 
-            "room_notes": notes_to_save
+            "room_notes":
+                notes_to_save
         }
+
+
+        # -----------------------------------------------
+        # SAVE TO SUPABASE
+        # -----------------------------------------------
 
         try:
 
             response = (
                 supabase
-                .table("cleaning_days")
-                .insert(record)
+                .table(
+                    "cleaning_days"
+                )
+                .insert(
+                    record
+                )
                 .execute()
             )
+
 
             st.success(
                 "✅ Today's work was saved "
                 "successfully!"
             )
+
 
         except Exception as e:
 
@@ -535,7 +674,9 @@ with dashboard_tab:
                 "❌ Failed to save today's work."
             )
 
-            st.code(str(e))
+            st.code(
+                str(e)
+            )
 
 
 # =========================================================
@@ -548,6 +689,7 @@ with history_tab:
         "📚 Working History"
     )
 
+
     if st.button(
         "🔄 Refresh History",
         use_container_width=True
@@ -555,12 +697,31 @@ with history_tab:
 
         st.rerun()
 
+
     try:
+
+        # -------------------------------------------------
+        # GET DATA FROM SUPABASE
+        # -------------------------------------------------
 
         response = (
             supabase
-            .table("cleaning_days")
-            .select("*")
+            .table(
+                "cleaning_days"
+            )
+            .select(
+                "id,"
+                "day_name,"
+                "work_date,"
+                "work_time,"
+                "rooms_completed,"
+                "rooms_remaining,"
+                "time_available_minutes,"
+                "minutes_per_room,"
+                "corridor_finished,"
+                "expected_finish,"
+                "room_notes"
+            )
             .order(
                 "work_date",
                 desc=False
@@ -568,17 +729,34 @@ with history_tab:
             .execute()
         )
 
-        records = response.data
+
+        records = (
+            response.data
+            or []
+        )
+
+
+        # -------------------------------------------------
+        # RECORD COUNT
+        # -------------------------------------------------
+
+        st.caption(
+            f"Database records found: "
+            f"{len(records)}"
+        )
+
 
         # -------------------------------------------------
         # NO DATA
         # -------------------------------------------------
 
-        if not records:
+        if len(records) == 0:
 
-            st.info(
-                "📭 No working days saved yet."
+            st.warning(
+                "📭 No working days were returned "
+                "from the database."
             )
+
 
         else:
 
@@ -586,15 +764,6 @@ with history_tab:
                 records
             )
 
-            # =============================================
-            # FORMAT DATE
-            # =============================================
-
-            df["work_date"] = pd.to_datetime(
-                df["work_date"]
-            ).dt.strftime(
-                "%d/%m/%Y"
-            )
 
             # =============================================
             # DAY NUMBER
@@ -609,6 +778,21 @@ with history_tab:
                 )
             )
 
+
+            # =============================================
+            # EUROPEAN DATE
+            # =============================================
+
+            df["work_date"] = (
+                pd.to_datetime(
+                    df["work_date"]
+                )
+                .dt.strftime(
+                    "%d/%m/%Y"
+                )
+            )
+
+
             # =============================================
             # SUMMARY
             # =============================================
@@ -617,9 +801,11 @@ with history_tab:
                 "📊 Summary"
             )
 
+
             col1, col2, col3 = (
                 st.columns(3)
             )
+
 
             with col1:
 
@@ -627,6 +813,7 @@ with history_tab:
                     "Working Days",
                     len(df)
                 )
+
 
             with col2:
 
@@ -639,10 +826,12 @@ with history_tab:
                     ).mean()
                 )
 
+
                 st.metric(
                     "Average Rooms / Day",
                     f"{average_rooms:.1f}"
                 )
+
 
             with col3:
 
@@ -655,10 +844,12 @@ with history_tab:
                     ).mean()
                 )
 
+
                 st.metric(
                     "Average Min / Room",
                     f"{average_minutes:.1f}"
                 )
+
 
             # =============================================
             # HISTORY TABLE
@@ -669,6 +860,7 @@ with history_tab:
             st.subheader(
                 "📅 Previous Working Days"
             )
+
 
             display_columns = [
 
@@ -693,6 +885,7 @@ with history_tab:
                 "expected_finish"
             ]
 
+
             existing_columns = [
 
                 column
@@ -702,11 +895,15 @@ with history_tab:
                 if column in df.columns
             ]
 
+
             st.dataframe(
-                df[existing_columns],
+                df[
+                    existing_columns
+                ],
                 use_container_width=True,
                 hide_index=True
             )
+
 
             # =============================================
             # ROOM NOTES
@@ -718,50 +915,69 @@ with history_tab:
                 "📝 Saved Room Notes"
             )
 
+
+            notes_found = False
+
+
             for record in records:
 
-                date = record.get(
-                    "work_date",
-                    "Unknown"
-                )
-
-                day_name = record.get(
-                    "day_name",
-                    ""
-                )
-
-                notes = record.get(
-                    "room_notes",
-                    {}
-                )
-
-                display_date = date
-
-                try:
-
-                    display_date = (
-                        pd.to_datetime(
-                            date
-                        ).strftime(
-                            "%d/%m/%Y"
-                        )
+                notes = (
+                    record.get(
+                        "room_notes"
                     )
+                    or {}
+                )
 
-                except Exception:
-
-                    pass
 
                 if notes:
 
+                    notes_found = True
+
+
+                    day_name = (
+                        record.get(
+                            "day_name",
+                            ""
+                        )
+                    )
+
+
+                    date = (
+                        record.get(
+                            "work_date",
+                            ""
+                        )
+                    )
+
+
+                    try:
+
+                        date_display = (
+                            pd.to_datetime(
+                                date
+                            ).strftime(
+                                "%d/%m/%Y"
+                            )
+                        )
+
+                    except Exception:
+
+                        date_display = str(
+                            date
+                        )
+
+
                     with st.expander(
                         f"📅 {day_name} — "
-                        f"{display_date}"
+                        f"{date_display}"
                     ):
+
 
                         if isinstance(
                             notes,
                             dict
                         ):
+
 
                             for room, note in (
                                 notes.items()
@@ -772,11 +988,21 @@ with history_tab:
                                     f"{note}"
                                 )
 
+
                         else:
 
                             st.write(
-                                notes
+                                str(notes)
                             )
+
+
+            if not notes_found:
+
+                st.caption(
+                    "No room notes have been "
+                    "saved yet."
+                )
+
 
             # =============================================
             # DOWNLOAD
@@ -788,7 +1014,11 @@ with history_tab:
                 "📥 Export Data"
             )
 
-            export_df = df.copy()
+
+            export_df = (
+                df.copy()
+            )
+
 
             if "room_notes" in (
                 export_df.columns
@@ -799,14 +1029,18 @@ with history_tab:
                 ] = (
                     export_df[
                         "room_notes"
-                    ].apply(str)
+                    ].apply(
+                        str
+                    )
                 )
+
 
             csv_data = (
                 export_df.to_csv(
                     index=False
                 )
             )
+
 
             st.download_button(
                 label="📥 Download CSV",
@@ -818,10 +1052,13 @@ with history_tab:
                 use_container_width=True
             )
 
+
     except Exception as e:
 
         st.error(
             "❌ Could not load history."
         )
 
-        st.code(str(e))
+        st.code(
+            str(e)
+        )
